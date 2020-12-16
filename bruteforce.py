@@ -1,13 +1,41 @@
 import string
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZipFile
 from itertools import product
 import threading
 from time import sleep
 import argparse
+import sys
+
+
+class BruteThread:
+
+    def __init__(self):
+        self._running = True
+
+    def terminate(self):
+        print('Stop running threads!')
+        self._running = False
+
+    def run(self, name, zipfile, first_bits, alphabet):
+        print('Starting thread ', str(name))
+        i = 0
+        # , alphabet, alphabet, alphabet, alphabet):
+        for password in product(first_bits, alphabet, alphabet, alphabet):
+            if self._running == False:
+                print('Thread ' + str(name) + ' finished by another thread!')
+                break
+            i += 1
+            if i % 1000000 == 0:
+                print('Thread ' + str(name) + ' made :' + str(i))
+            password = ''.join(password)
+            if open_zip(zipfile, password):
+                print('Thread ' + str(name) + ' finished!')
+                self.terminate()
+                break
 
 
 def open_zip(zipfile, password):
-    #print('Trying: ', password)
+    # print('Trying: ', password)
     try:
         zipfile.extractall(pwd=bytes(password, 'utf-8'))
         print('Worked with: ', password)
@@ -17,8 +45,9 @@ def open_zip(zipfile, password):
 
 
 def open_easy():
+    zipfile = ZipFile('easy.zip')
     for i in range(10000):
-        if open_zip('easy.zip', str(i)):
+        if open_zip(zipfile, str(i)):
             break
 
 
@@ -32,36 +61,25 @@ def open_medium():
 
 
 def open_hard(filename):
+    threads = BruteThread()
     zipfile = ZipFile(filename)
 
+    #alphabet = string.digits
     # alphabet = string.digits + string.ascii_letters + '!@#$%^&*?,()-=+[]/;'
     alphabet = string.ascii_lowercase
 
-    num_parts = 16
-    part_size = len(alphabet) // num_parts
+    num_threads = 8
+    part_size = len(alphabet) // num_threads
 
-    for i in range(num_parts):
-        if i == num_parts - 1:
+    for i in range(num_threads):
+        if i == num_threads - 1:
             first_bit = alphabet[part_size * i:]
         else:
             first_bit = alphabet[part_size * i: part_size * (i+1)]
 
-        thr = threading.Thread(target=do_job, args=(i,
-                                                    zipfile, first_bit, alphabet, ))
-        thr.start()
-
-
-def do_job(name, zipfile, first_bits, alphabet):
-    print('Starting thread ', str(name))
-    i = 0
-    for password in product(first_bits, alphabet, alphabet, alphabet, alphabet, alphabet, alphabet, alphabet):
-        i += 1
-        if i % 1000000 == 0:
-            print(print('Thread ' + str(name) + ' made :' + str(i)))
-        password = ''.join(password)
-        if open_zip(zipfile, password):
-            break
-    print('Thread ' + str(name) + 'finished!')
+        thread = threading.Thread(target=threads.run, args=(i,
+                                                            zipfile, first_bit, alphabet, ))
+        thread.start()
 
 
 if __name__ == "__main__":
@@ -72,4 +90,5 @@ if __name__ == "__main__":
     args = vars(ap.parse_args())
     filename = args["input"]
 
+    # open_easy()
     open_hard(filename)
